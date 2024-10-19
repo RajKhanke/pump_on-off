@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pump Prediction</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            background-color: #f0f8f5;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 10px;
+            margin-top: 100px;
+            padding: 30px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+        .status {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .status.on {
+            color: green;
+            border: 2px solid green;
+            padding: 10px;
+            display: inline-block;
+            border-radius: 5px;
+        }
+        .status.off {
+            color: red;
+            border: 2px solid red;
+            padding: 10px;
+            display: inline-block;
+            border-radius: 5px;
+        }
+        h2 {
+            color: green;
+            font-weight: bold;
+            text-align: center;
+        }
+        #time-counter {
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            font-size: 1.5rem;
+            color: brown; /* Brown color for the time counter */
+        }
+        /* Center-align and highlight the gauge chart */
+        #gauge-container {
+            text-align: center;
+            padding: 20px;
+        }
+        #gauge {
+            margin-left : 60px;
+            display: inline-block;
+            width: 650px;
+            height: 450px;
+            border: 2px solid #4CAF50; /* Highlight with green border */
+            border-radius: 10px;
+            padding: 10px;
+        }
+    </style>
+    <script>
+        let alertSound = new Audio('{{ url_for("static", filename="alarn_tune.mp3") }}');
+
+        function playAlertSound() {
+            alertSound.currentTime = 0;
+            alertSound.play().catch(error => console.error("Error playing sound:", error));
+        }
+
+        function fetchPumpStatus() {
+            fetch('/update_pump_status')
+                .then(response => response.json())
+                .then(data => {
+                    const statusElement = document.getElementById('pumpStatus');
+                    statusElement.innerHTML = 'Pump Status: ' + data.pump_status;
+                    statusElement.className = data.pump_status === 'On' ? 'status on' : 'status off';
+
+                    if (data.pump_status === 'Off') {
+                        console.log("Pump status is Off. Playing alert sound.");
+                        playAlertSound();
+                    }
+                })
+                .catch(err => console.error("Error fetching pump status:", err));
+        }
+
+        function fetchGraphData() {
+            fetch('/update_graph')
+                .then(response => response.json())
+                .then(data => {
+                    const time = data.map((_, index) => index + 1);
+                    const soilMoisture = data.map(entry => entry[0]);
+                    const pumpStatus = data.map(entry => entry[1]);
+
+                    // Update Gauge chart with soil moisture
+                    const currentSoilMoisture = soilMoisture[soilMoisture.length - 1];
+                    updateGaugeChart(currentSoilMoisture);
+
+                    // Pump Status vs. Time
+                    const binaryPumpStatus = pumpStatus.map(status => status);
+                    const trace1 = {
+                        x: time,
+                        y: binaryPumpStatus,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Pump Status',
+                        line: { color: 'blue' },
+                    };
+
+                    const layout1 = {
+                        title: 'Pump Status (On/Off) vs. Time',
+                        xaxis: { title: 'Time (s)' },
+                        yaxis: { title: 'Pump Status', tickvals: [-1, 1], ticktext: ['Off', 'On'], range: [-1.5, 1.5] },
+                        showlegend: true
+                    };
+
+                    Plotly.newPlot('graph1', [trace1], layout1);
+
+                    // Soil Moisture vs. Time
+                    const trace2 = {
+                        x: time,
+                        y: soilMoisture,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Soil Moisture',
+                        line: { color: 'green' },
+                    };
+
+                    const layout2 = {
+                        title: 'Soil Moisture vs. Time',
+                        xaxis: { title: 'Time (s)' },
+                        yaxis: { title: 'Soil Moisture' },
+                        showlegend: true
+                    };
+
+                    Plotly.newPlot('graph2', [trace2], layout2);
+
+                    // Combined Graph for Soil Moisture vs. Pump Status
+                    const trace3 = {
+                        x: soilMoisture,
+                        y: binaryPumpStatus,
+                        mode: 'lines',
+                        type: 'scatter',
+                        name: 'Pump Status',
+                        line: { color: 'blue' },
+                    };
+
+                    const layout3 = {
+                        title: 'Pump Status and Soil Moisture',
+                        xaxis: { title: 'Soil Moisture' },
+                        yaxis: { title: 'Pump Status', tickvals: [-1, 1], ticktext: ['Off', 'On'], range: [-1.5, 1.5] },
+                        showlegend: true
+                    };
+
+                    Plotly.newPlot('graph3', [trace3], layout3);
+
+                    // Histogram for Soil Moisture
+                    const trace4 = {
+                        x: soilMoisture,
+                        type: 'histogram',
+                    };
+
+                    const layout4 = {
+                        title: 'Histogram of Soil Moisture',
+                        xaxis: { title: 'Soil Moisture' },
+                        yaxis: { title: 'Frequency' }
+                    };
+
+                    Plotly.newPlot('graph4', [trace4], layout4);
+                })
+                .catch(err => console.error("Error fetching graph data:", err));
+        }
+
+        // Function to update the gauge chart
+        function updateGaugeChart(value) {
+            const data = [
+                {
+                    type: "indicator",
+                    mode: "gauge+number+delta",
+                    value: value,
+                    title: { text: "Soil Moisture", font: { size: 24 } },
+                    gauge: {
+                        axis: { range: [0, 100] },
+                        steps: [
+                            { range: [0, 30], color: "red" },
+                            { range: [30, 60], color: "yellow" },
+                            { range: [60, 100], color: "green" }
+                        ],
+                        threshold: {
+                            line: { color: "black", width: 4 },
+                            thickness: 0.75,
+                            value: value
+                        }
+                    }
+                }
+            ];
+
+            const layout = {
+                width: 600,
+                height: 400,
+                margin: { t: 0, b: 0 }
+            };
+
+            Plotly.newPlot('gauge', data, layout);
+        }
+
+        // Time counter functionality
+        let timeCounter = 0;
+        function updateTimeCounter() {
+            timeCounter++;
+            document.getElementById('time-counter').innerText = `Time: ${timeCounter} seconds`;
+        }
+
+        // Set intervals for data fetching and time counting
+        setInterval(fetchPumpStatus, 2000); // Update every 2 seconds
+        setInterval(fetchGraphData, 2000); // Update every 2 seconds
+        setInterval(updateTimeCounter, 1000); // Update time counter every second
+
+        document.addEventListener('click', () => {
+            alertSound.load(); // Load the sound on user interaction
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h2>Pump & Irrigation Status Prediction</h2>
+        <div id="pumpStatus" class="status {{ 'on' if pump_status == 'On' else 'off' }}">
+            Pump Status: {{ pump_status }}
+        </div>
+        <div id="time-counter">Time: 0 seconds</div>
+
+        <!-- Soil Moisture Gauge Chart with center alignment and highlight -->
+        <div id="gauge-container">
+            <div id="gauge"></div>
+        </div>
+
+        <div id="graph1" style="width:100%; height:400px;"></div>
+        <div id="graph2" style="width:100%; height:400px;"></div>
+        <div id="graph3" style="width:100%; height:400px;"></div>
+        <div id="graph4" style="width:100%; height:400px;"></div>
+    </div>
+</body>
+</html>

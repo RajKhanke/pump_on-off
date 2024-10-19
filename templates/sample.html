@@ -1,0 +1,42 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Value Beep</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Random Value Checker</h1>
+    <button id="generateButton">Generate Random Value</button>
+    <p id="result"></p>
+
+    <audio id="beepSound" src="/alarn_tune.mp3"></audio>
+
+    <script>
+        document.getElementById("generateButton").onclick = function() {
+            // Generate a random value between 0 and 20
+            var randomValue = Math.floor(Math.random() * 21);
+            document.getElementById("result").innerText = "Generated Value: " + randomValue;
+
+            // Check if the random value is greater than 10
+            if (randomValue > 10) {
+                document.getElementById("beepSound").play();
+            }
+        }
+    </script>
+</body>
+</html>

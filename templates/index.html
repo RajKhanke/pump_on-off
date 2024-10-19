@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Irrigation System</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f0f8f5;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 10px;
+            margin-top: 50px;
+            padding: 30px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border: 2px solid green;
+            margin-bottom: 20px; /* Add bottom margin here */
+        }
+        h1 {
+            color: green;
+            text-align: center;
+            font-weight: bold;
+        }
+        .left-box, .right-box {
+            padding: 20px;
+        }
+        .form-group label {
+            font-weight: bold;
+        }
+        .form-control, .form-control-file {
+            border: 2px solid green;
+            border-radius: 5px;
+        }
+        #image-preview {
+            display: block;
+            margin: 10px auto; /* Centering the image */
+            width: 100px; /* Size of the preview */
+            height: 100px; /* Size of the preview */
+            border-radius: 5px;
+            object-fit: cover;
+            border: 2px solid green; /* Optional: Border around the preview */
+        }
+        #weather-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e0f8e0;
+            border-radius: 8px;
+            border: 2px solid green;
+        }
+        #decorative-image {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Smart Irrigation System</h1>
+        <form method="POST" action="/" enctype="multipart/form-data">
+            <div class="row">
+                <!-- Left side: Input Fields -->
+                <div class="col-md-7 left-box">
+
+                    <!-- Crop Type Dropdown -->
+                    <div class="form-group">
+                        <label for="crop_type">Select Crop Type</label>
+                        <select class="form-control" id="crop_type" name="crop_type" required>
+                            <option value="">--Select Crop Type--</option>
+                            {% for crop, value in crop_types.items() %}
+                                <option value="{{ crop }}" {% if crop == crop_type %}selected{% endif %}>{{ crop }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Crop Age Input -->
+                    <div class="form-group">
+                        <label for="crop_age">Enter Crop Age (in days)</label>
+                        <input type="number" class="form-control" id="crop_age" name="crop_age" value="{{ crop_age }}" required>
+                    </div>
+
+                    <!-- Region Dropdown -->
+                    <div class="form-group">
+                        <label for="region">Select Region</label>
+                        <select class="form-control" id="region" name="region" required>
+                            <option value="">--Select Region--</option>
+                            {% for region, value in regions.items() %}
+                                <option value="{{ region }}" {% if region == region %}selected{% endif %}>{{ region }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Irrigation Type Dropdown -->
+                    <div class="form-group">
+                        <label for="irrigation_type">Select Irrigation Type</label>
+                        <select class="form-control" id="irrigation_type" name="irrigation_type" required>
+                            <option value="">--Select Irrigation Type--</option>
+                            {% for irrigation, value in irrigation_types.items() %}
+                                <option value="{{ irrigation }}" {% if irrigation == irrigation_type %}selected{% endif %}>{{ irrigation }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Weather Data Section -->
+                    <div class="form-group">
+                        <label for="city">Enter Your City for Weather</label>
+                        <input type="text" class="form-control" id="city" name="city" value="{{ city }}">
+                        <button type="submit" name="fetch_weather" class="btn btn-success mt-2">Fetch Weather Data</button>
+                    </div>
+
+                    <!-- Display weather data -->
+                    {% if temperature %}
+                    <div id="weather-box">
+                        <p><strong>Weather Description:</strong> {{ weather_desc }}</p>
+                        <p><strong>Temperature:</strong> {{ temperature }} °C</p>
+                        <p><strong>Humidity:</strong> {{ humidity }}%</p>
+                        <p><strong>Pressure:</strong> {{ pressure }} hPa</p>
+                    </div>
+                    {% endif %}
+                    <div class="form-group">
+                       <label for="soil_moisture">Upload Soil Moisture Data (CSV)</label>
+                       <input type="file" class="form-control-file" id="soil_moisture" name="soil_moisture" accept=".csv" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="soil_image">Upload Soil Image</label>
+                        <input type="file" class="form-control-file" id="soil_image" name="soil_image" accept="image/*" onchange="previewImage(event)">
+                    </div>
+
+                    <!-- Image Preview Section -->
+                    <img id="image-preview" src="{{ soil_image_url }}" alt="Image Preview" style="display: {% if soil_image_url %}block{% else %}none{% endif %};">
+
+                    {% if predicted_soil_type %}
+                    <div class="form-group">
+                       <label for="predicted_soil_type"><strong>Predicted Soil Type:</strong></label>
+                       <input type="text" class="form-control" id="predicted_soil_type" value="{{ soil_label }}" readonly>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Right side: Static Image Decoration -->
+                <div class="col-md-5 right-box text-center">
+                    <img id="decorative-image" src="static/images/irrigation_image.jpeg" alt="Decorative Irrigation Image">
+                </div>
+            </div>
+
+            <button type="submit" name="predict" class="btn btn-primary btn-block">Predict Pump Status</button>
+        </form>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+        // Preview uploaded image
+        function previewImage(event) {
+            const [file] = event.target.files;
+            const preview = document.getElementById('image-preview');
+            if (file) {
+                preview.src = URL.createObjectURL(file);
+                preview.style.display = 'block'; // Show the image preview
+            } else {
+                preview.style.display = 'none'; // Hide if no file is selected
+            }
+        }
+    </script>
+</body>
+</html>
