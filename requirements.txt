@@ -5,3 +5,5 @@ numpy
 joblib==1.4.2
 flask
 tensorflow==2.17.0
+requests
+pillow
